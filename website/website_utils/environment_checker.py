@@ -1,13 +1,22 @@
 import os
 from dotenv import load_dotenv
 
-ENV_NAME = '.env'
 
 class Environment():
-	
+	"""
+According to security measurences sensitive data should be stored in environment
+and never be pushed to git
+To perform this secret keys (like: django SECRET_KEY, API_KEY e.t.c) will be stored in .env file
+ * That file will be found on runserver (or will be created by script)
+ * File's content will be loaded into environment by dotenv library
+ * By calling get(variable) method value of data with name <variable> will be checked and returned	
+	"""
+
+	ENV_NAME = '.env'
+
 	def __init__(self, _project_dir):
 		self.project_dir = _project_dir
-		self.env_name = ENV_NAME
+		self.env_name = self.ENV_NAME
 		self.env_path = os.path.join(self.project_dir, self.env_name)
 		self.check_existence()
 		self.load()
