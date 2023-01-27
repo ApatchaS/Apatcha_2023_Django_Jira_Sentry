@@ -13,7 +13,7 @@ class Jira(models.Model):
 	def __str__(self):
 		return self.project_key
 
-class JiraSentry(models.Model):
+class JiraSentryLink(models.Model):
 	jira_project_key = models.ForeignKey(Jira, on_delete=models.CASCADE, name='jira project key')
 	sentry_project_name = models.ForeignKey(Sentry, on_delete=models.CASCADE, name='sentry project name')
 
@@ -25,8 +25,8 @@ class Issue(models.Model):
 	sentry_project_name = models.ForeignKey(Sentry, on_delete=models.CASCADE, name='project')
 	type = models.CharField(max_length=100)
 	value = models.CharField(max_length=100)
-	traceback = models.TextField()
-	url = models.CharField(max_length=100)
+	traceback = models.JSONField()
+	url = models.URLField()
 	date = models.DateTimeField(name='date of receipt', default=timezone.now)
 	sent = models.BooleanField(default=False)
 
