@@ -1,91 +1,72 @@
 import json
+import operator as op
+from django.http import JsonResponse
 
 class IssueReqResHandler():
 	
-	def __init__(self, _content_type, _body):
-		self.full_json = None
-		self.message = "Issue successfully recieved!"
-		self.status_code = 202
-		self.check_request(_content_type, _body)
+	statuses = {
+		0: [202, "Issue successfully received!"],
+		1: [406, "Issue should be sent as json: check request's body and headers"],
+		2: [400, "Sent json have syntaxis errors"],
+		3: [400, "One or several fields couldn't be found"],
+	}
+
+	required_fields = {
+		'sentry_project_name': ['project_name'],
+		'type': ['event', 'exception', 'values', 0, 'type'],
+		'value': ['event', 'exception', 'values', 0, 'value'],
+		'traceback': ['event', 'exception', 'values', 0, 'stacktrace', 'frames', -1],
+		'url': ['url'],
+	}
+
+	CONTENT_TYPE = "application/json"
+
+	def __init__(self, _request):
+		self.status = 0
+		self.content_type = _request.content_type
+		self.body = _request.body
+		self.check_content_type()
+		self.body_json = self.get_json_body() if self.status == 0 else {}
+		self.fields = self.get_fields() if self.status == 0 else {}
 	
-	def check_request(self, _content_type, _body):
-		if _content_type != 'application/json':
-			self.message = "Issue should be sent as json: check request's body and headers"
-			self.status_code = 406
-		else:
-			try:
-				self.full_json = json.loads(_body)
-			except json.JSONDecodeError:
-				self.message = "Sent json have syntaxis errors"
-				self.status_code = 400
-		return (self.full_json, self.message, self.status_code)
+	def check_content_type(self, desire_content_type=CONTENT_TYPE):
+		if self.content_type != desire_content_type:
+			self.status = 1
+			return False
+		return True
 
-	def get_sentry_project_name(self):
-		name = 'sentry_project_name'
-		value = None
+	def get_json_body(self):
 		try:
-			value = self.full_json['project_name']
-		except:
-			self.message = "One or several fields couldn't be found"
-			self.status_code = 400
-		return {name:value}
+			js = json.loads(self.body)
+		except json.JSONDecodeError:
+				self.status = 2
+				return {}
+		return js
 
-	def get_sentry_type(self):
-		name = 'type'
-		value = None
+	def get_field(self, name, path):
+		obj = self.body_json
 		try:
-			value = self.full_json['event']['exception']['values'][0]['type']
+			for item in path:
+				func = op.itemgetter(item)
+				obj = func(obj)
 		except:
-			self.message = "One or several fields couldn't be found"
-			self.status_code = 400
-		return {name:value}
-		
-	def get_sentry_value(self):
-		name = 'value'
-		value = None
-		try:
-			value = self.full_json['event']['exception']['values'][0]['value']
-		except:
-			self.message = "One or several fields couldn't be found"
-			self.status_code = 400
-		return {name:value}
+			self.status = 3
+			return {name: None}
+		return {name: obj}
 
-	def get_sentry_traceback(self):
-		name = 'traceback'
-		value = None
-		try:
-			value = self.full_json['event']['exception']['values'][0]['stacktrace']['frames'][-1]
-		except:
-			self.message = "One or several fields couldn't be found"
-			self.status_code = 400
-		return {name:value}
+	def get_fields(self, dictionary=required_fields):
+		result = {}
+		for key, value in dictionary.items():
+			result.update(self.get_field(key, value))
+		return result
 
-	
-	def get_sentry_url(self):
-		name = 'url'
-		value = None
-		try:
-			value = self.full_json['url']
-		except:
-			self.message = "One or several fields couldn't be found"
-			self.status_code = 400
-		return {name:value}
-
-	def form_response(self):
-		if self.status_code != 202:
-			return {}
-		return {
-		**self.get_sentry_project_name(),
-		**self.get_sentry_type(),
-		**self.get_sentry_value(),
-		**self.get_sentry_traceback(),
-		**self.get_sentry_url(),
+	def form_feedback(self):
+		stat = IssueReqResHandler.statuses[self.status]
+		content = {
+			"message": stat[1],
+			"status code": stat[0],
+			"content": self.fields,
 		}
-	
-	def form_meta_response(self):
-		content = self.form_response()
-		return {
-			'message': self.message,
-			'status code': self.status_code,
-			'content': content
-		}
+		return JsonResponse(data=content,
+							status=stat[0],
+							content_type=IssueReqResHandler.CONTENT_TYPE)

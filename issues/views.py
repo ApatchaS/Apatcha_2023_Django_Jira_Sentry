@@ -17,8 +17,5 @@ def issue_detail(request, pk):
 @csrf_exempt # We can remove csrf check cause exchanging not sensitive data
 @require_http_methods(["POST"])
 def issue_post(request):
-	issue = IssueReqResHandler(request.content_type, request.body)
-
-	return HttpResponse(JsonResponse(issue.form_meta_response()),
-									content_type='application/json',
-									status=issue.status_code)
+	issue = IssueReqResHandler(request)
+	return issue.form_feedback()
