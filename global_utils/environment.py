@@ -30,11 +30,13 @@ To perform this secret keys (like: django SECRET_KEY, API_KEY e.t.c) will be sto
 							f"In {self.project_dir} was created file {self.env_name} "
 							"to store sensitive variables as SECRET_KEY, API_KEY e.t.c; "
 							"Please put such values there: <VAR>='<VALUE>'")
-	
+		return
+
 	def load(self):
-		load_dotenv(self.env_path)		
+		load_dotenv(self.env_path)
+		return
 	
-	def get(self, variable):
+	def get_environment_variable(variable):
 		value = os.environ.get(variable)
 		if value == None or len(value) == 0:
 			raise ValueError(f"Please check value of {variable}; "

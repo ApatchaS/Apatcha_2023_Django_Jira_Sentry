@@ -11,20 +11,20 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
-from .website_utils.environment import Environment
+from global_utils.environment import Environment
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Class for loading environment variables
-env = Environment(BASE_DIR)
+Environment(BASE_DIR)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Gets value of SECRET_KEY from environment
-SECRET_KEY = env.get('SECRET_KEY')
+SECRET_KEY = Environment.get_environment_variable('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
