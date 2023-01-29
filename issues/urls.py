@@ -1,9 +1,9 @@
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
 from . import views
 
 app_name = 'issues'
 urlpatterns = [
-	path('', views.issue_list, name='issue_list'),
-	path('issue/<int:pk>/', views.issue_detail, name='issue_detail'),
-	path('issue/new/', views.issue_post, name='issue_post'),
+	path('issues/', csrf_exempt(views.Issues.as_view()), name='issue_list'),
+	path('issues/<int:pk>/', views.IssuesDetail.as_view(), name='issue_detail'),
 ]

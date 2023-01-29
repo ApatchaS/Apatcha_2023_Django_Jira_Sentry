@@ -3,12 +3,20 @@ import operator as op
 from django.http import JsonResponse
 
 class IssueReqResHandler():
-	
+	"""
+This class needed to:
+	* check if request have type "application/json"
+	* deserialize request body as json and check it's sintaxis
+	* get necessary for sending to django and Jira fields from converted json
+	* forming response with accepted data / corresponding errors as JSONResponse
+It's possible to reach any field of converted json by passing it's "path" represented by list of indexes in json
+	"""
+
 	statuses = {
 		0: [202, "Issue successfully received!"],
 		1: [406, "Issue should be sent as json: check request's body and headers"],
 		2: [400, "Sent json have syntaxis errors"],
-		3: [400, "One or several fields couldn't be found"],
+		3: [400, "One or several fields couldn't be found (marked as None)"],
 	}
 
 	required_fields = {
@@ -63,9 +71,9 @@ class IssueReqResHandler():
 	def form_feedback(self):
 		stat = IssueReqResHandler.statuses[self.status]
 		content = {
-			"message": stat[1],
-			"status code": stat[0],
-			"content": self.fields,
+			'message': stat[1],
+			'status code': stat[0],
+			'content': self.fields,
 		}
 		return JsonResponse(data=content,
 							status=stat[0],

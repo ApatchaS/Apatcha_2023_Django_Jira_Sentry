@@ -2,23 +2,24 @@ from django.db import models
 from django.utils import timezone
 
 class Sentry(models.Model):
-	project_name = models.CharField(max_length=50, name='name')
+	project_name = models.CharField(max_length=50, unique=True, name='name') #may be Primary key
+	last_updated = models.DateTimeField(name='last updated', default=timezone.now)
 
 	def __str__(self):
-		return self.project_name
+		return self.name
 
 class Jira(models.Model):
-	project_key = models.CharField(max_length=50, name='key')
+	project_name = models.CharField(max_length=50, unique=True, name='name') #may be Primary key
 
 	def __str__(self):
-		return self.project_key
+		return self.name
 
 class JiraSentryLink(models.Model):
-	jira_project_key = models.ForeignKey(Jira, on_delete=models.CASCADE, name='jira project key')
+	jira_project_name = models.ForeignKey(Jira, on_delete=models.CASCADE, name='jira project name')
 	sentry_project_name = models.ForeignKey(Sentry, on_delete=models.CASCADE, name='sentry project name')
 
 	def __str__(self):
-		return f'{self.jira_project_key}:{self.sentry_project_name}'
+		return f'{self.jira_project_name}:{self.sentry_project_name}'
 
 
 class Issue(models.Model):
@@ -31,4 +32,4 @@ class Issue(models.Model):
 	sent = models.BooleanField(default=False)
 
 	def __str__(self):
-		return f'{self.sentry_project_name}: {self.type} "{self.value}"'
+		return f'{self.project}: {self.type} "{self.value}"'
