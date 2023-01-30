@@ -5,23 +5,18 @@ from . import models
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView
+from django.shortcuts import render
 
 import asyncio
 
-
-from django.shortcuts import render
-from django.http import HttpResponse
+OUTDATED_PROJECTS_IN_DAYS = int(Environment.get_environment_variable('OUTDATED_PROJECTS_IN_DAYS'))
 
 class Issues(View):
 
-	OUTDATE_ISSUE_IN_DAYS = Environment.get_environment_variable('OUTDATE_ISSUE_IN_DAYS')
-
-	async def clean_old_issues():
-		print(Issues.OUTDATE_ISSUE_IN_DAYS)
-		return
-
 	async def get(self, request):
-		return HttpResponse('Issue_list')
+		models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
+		issues = models.Issue.objects.all().order_by('date')
+		return render(request, 'issues/issue_list.html', {'issues':issues})
 
 	async def post(self, request):
 
@@ -33,12 +28,13 @@ class Issues(View):
 		async def thread2_sentry_side(fields):
 			#Create or update project's record in the Sentry model
 			#Create new issue record in the Issue model
+			#Delete outdated project according to env variable time
 			func_fields = dict(fields)
 			project = func_fields.pop('sentry_project_name')
 			instance, _ = await models.Sentry.objects.aupdate_or_create\
-							(name=project, defaults={'last updated': timezone.now()})
-			await models.Issue.objects.acreate(**func_fields, project=instance)
-			await Issues.clean_old_issues()
+							(project_name=project, defaults={'last_updated': timezone.now()})
+			await models.Issue.objects.acreate(**func_fields, sentry_project_name=instance)
+			await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
 			return
 
 		issue = IssueReqResHandler(request)
@@ -49,6 +45,7 @@ class Issues(View):
 			#Post to jira if there is link
 		return issue.form_feedback()
 
-class IssuesDetail(DetailView):	
-	async def get(self, request, pk):
-		return HttpResponse(f'Issue_detail {pk}')
+class IssuesDetail(DetailView):
+	model = models.Issue
+	template_name = 'issues/issue_detail.html'
+	context_object_name = 'issue'
