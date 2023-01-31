@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>SJ</title>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora&display=swap", type="text/css">
+		<link rel="stylesheet" href="{% static 'issues/issues.css' %}">
+	</head>
+	<body>
+		<div class="header">
+			<div class="header_title">
+				<h1>
+					<a href="{% url 'issues:issue_list' %}" id="header_title_link" title="Go to the issue list">
+						(Sentry && Jira)==Integration
+					</a>
+				</h1>
+			</div>
+			<div class="header_icon">
+				<a href="https://www.zyfra.com/" target="_blank">
+					<img src="{% static 'issues/images/icon.png' %}" title="Go to the Zyfra" alt="Zyfra" width = "150px" height="150px" border="0">
+				</a>
+			</div>
+		</div>
+		<div class="content">
+			{% block content %}
+			{% endblock %}
+		</div>
+	</body>
+</html>

@@ -1,0 +1,16 @@
+{% extends 'issues/base.html' %}
+
+{% block content %}
+	<div class="issue_in_detail">
+		<h3 style="text-align: center;">{{ issue.sentry_project_name }}: {{ issue.type }} "{{ issue.value }}"</h3>
+		<p><b>Project in sentry:</b> {{ issue.sentry_project_name }}</p>
+		<p><b>Error type:</b> {{ issue.type }}</p>
+		<p><b>Error value:</b> {{ issue.value }}</p>
+		<p><b>Error traceback:</b></p>
+		<pre><code>{{ issue.traceback }}</code></pre>
+		<p><b>Received:</b> {{ issue.date }}</p>
+		<p><b>Sent to Jira:</b> {{ issue.sent }}</p>
+		<p style="text-align: center;"><a href="{{ issue.url }}" id="issue_in_detail_link" title="Go to the Sentry">Sentry</a></p>
+	</div>
+
+{% endblock %}

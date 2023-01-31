@@ -6,17 +6,21 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView
 from django.shortcuts import render
+from asgiref.sync import sync_to_async
 
 import asyncio
+import json
 
 OUTDATED_PROJECTS_IN_DAYS = int(Environment.get_environment_variable('OUTDATED_PROJECTS_IN_DAYS'))
 
 class Issues(View):
 
 	async def get(self, request):
-		models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
+		await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
 		issues = models.Issue.objects.all().order_by('date')
-		return render(request, 'issues/issue_list.html', {'issues':issues})
+		return await sync_to_async(render)(request, 
+											'issues/issue_list.html',
+											{'issues':issues})
 
 	async def post(self, request):
 
@@ -33,7 +37,8 @@ class Issues(View):
 			project = func_fields.pop('sentry_project_name')
 			instance, _ = await models.Sentry.objects.aupdate_or_create\
 							(project_name=project, defaults={'last_updated': timezone.now()})
-			await models.Issue.objects.acreate(**func_fields, sentry_project_name=instance)
+			traceback = await sync_to_async(json.dumps)(func_fields.pop('traceback'), indent=10)
+			await models.Issue.objects.acreate(sentry_project_name=instance, traceback=traceback, **func_fields)
 			await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
 			return
 

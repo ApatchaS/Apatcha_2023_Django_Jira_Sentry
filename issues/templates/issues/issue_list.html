@@ -1,0 +1,17 @@
+{% extends 'issues/base.html' %}
+{% load static %}
+
+{% block content %}
+	{% for issue in issues %}
+		<div class="issue_in_list">
+			<h3>{{ issue.sentry_project_name }}: {{ issue.type }} "{{ issue.value }}"</h3>
+			<p>{{ issue.date }}</p>
+			<p><a href="{% url 'issues:issue_detail' pk=issue.pk %}" id="issue_in_list_link">Click for more details</a></p>
+			{% if issue.sent %}
+				<img src="{% static 'issues/images/success.png' %}" id="issue_in_list_flag" title="OK" alt="OK">
+			{% else %}
+				<img src="{% static 'issues/images/fail.png' %}" id="issue_in_list_flag" title="FAIL" alt="FAIL">
+			{% endif %}
+		</div>
+	{% endfor %}
+{% endblock %}
