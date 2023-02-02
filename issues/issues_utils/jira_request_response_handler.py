@@ -31,12 +31,23 @@ class JiraClient():
 		except:
 			return None
 		return response
+	
+	async def jira_post_request(self, url, data, ssl=True, status=201):
+		headers={'Content-Type': 'application/json;charset=UTF-8'}
+		response = None
+		try:
+			async with self.session.post(url, ssl=ssl, headers=headers, data=data) as resp:
+				if resp.status==status:
+					response = await resp.read()
+		except:
+			return None
+		return response
 
 	def jira_get_project_list(response):
 		projects = set()
 		json_response = json.loads(response)
 		for project in json_response:
-			projects.add(project['name'])
+			projects.add((project['name'], int(project['id'])))
 		return projects
 
 	async def close(self):
