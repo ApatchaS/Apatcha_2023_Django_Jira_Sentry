@@ -1,5 +1,6 @@
 from global_utils.environment import Environment
 from .issues_utils.sentry_request_response_handler import IssueReqResHandler
+from .issues_utils.jira_request_response_handler import JiraClient
 from . import models
 
 from django.utils import timezone
@@ -17,7 +18,7 @@ class Issues(View):
 
 	async def get(self, request):
 		await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
-		issues = models.Issue.objects.all().order_by('date')
+		issues = models.Issue.objects.all().order_by('-date')
 		return await sync_to_async(render)(request, 
 											'issues/issue_list.html',
 											{'issues':issues})
@@ -27,7 +28,15 @@ class Issues(View):
 		async def thread1_jira_side():
 			#Make request to Jira
 			#Handle the Jira model
-			pass
+			client = JiraClient()
+			client.get_session_info()
+			response = await client.jira_get_request('https://jira.zyfra.com/rest/api/2/project/')
+			jira_projects = JiraClient.jira_get_project_list(response)
+			django_projects = [item.project_name async for item in models.Jira.objects.all()]
+			projects_to_push = jira_projects.difference(django_projects)
+			await models.Jira.objects.abulk_create((models.Jira(project_name=item) for item in projects_to_push))
+			await client.close()
+			return
 
 		async def thread2_sentry_side(fields):
 			#Create or update project's record in the Sentry model
