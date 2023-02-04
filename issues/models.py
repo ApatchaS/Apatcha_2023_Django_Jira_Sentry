@@ -19,10 +19,10 @@ class Sentry(models.Model):
 
 class Jira(models.Model):
 	project_name = models.CharField(max_length=50, unique=True, default='DEFAULT') #may be Primary key
-	uuid = models.IntegerField(unique=True, default=-1) #may be Primary key
+	project_id = models.IntegerField(unique=True, default=-1) #may be Primary key
 
 	def __str__(self):
-		return f'{self.project_name}:{self.uuid}'
+		return f'{self.project_name}:{self.project_id}'
 
 class JiraSentryLink(models.Model):
 	jira_project_name = models.ForeignKey(Jira, on_delete=models.CASCADE)

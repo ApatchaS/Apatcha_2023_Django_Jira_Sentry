@@ -28,7 +28,9 @@ It's possible to reach any field of converted json by passing it's "path" repres
 	}
 
 	CONTENT_TYPE = "application/json"
-
+# FIXME:отправить поля реквеста (боди)
+# FIXME:валидация в представлении
+# FIXME:данный класс - builder (формирование body)
 	def __init__(self, _request):
 		self.status = 0
 		self.content_type = _request.content_type

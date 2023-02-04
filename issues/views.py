@@ -17,7 +17,7 @@ OUTDATED_PROJECTS_IN_DAYS = int(Environment.get_environment_variable('OUTDATED_P
 class Issues(View):
 
 	async def get(self, request):
-		await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
+		await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS) #FIXME: перенести из представления (managment command)
 		issues = models.Issue.objects.all().order_by('-date', '-sent')
 		return await sync_to_async(render)(request, 
 											'issues/issue_list.html',
@@ -28,13 +28,13 @@ class Issues(View):
 		async def thread1_jira_side():
 			#Make request to Jira
 			#Handle the Jira model
-			client = JiraClient()
-			response = await client.jira_get_request(url='https://jira.zyfra.com/rest/api/2/project/')
+			client = JiraClient() #FIXME: переписать потом
+			response = await client.jira_get_request(url='https://jira.zyfra.com/rest/api/2/project/') #FIXME: перенести baseurl: https://jira.zyfra.com/
 			if response != None:
 				jira_projects = JiraClient.jira_get_project_list(response)
-				django_projects = {(item.project_name, item.uuid)  async for item in models.Jira.objects.all()}
+				django_projects = {(item.project_name, item.project_id)  async for item in models.Jira.objects.all()}
 				projects_to_push = jira_projects.difference(django_projects)
-				await models.Jira.objects.abulk_create((models.Jira(project_name=item[0], uuid=item[1]) for item in projects_to_push))
+				await models.Jira.objects.abulk_create((models.Jira(project_name=item[0], project_id=item[1]) for item in projects_to_push))
 			await client.close()
 			return
 
@@ -55,7 +55,7 @@ class Issues(View):
 			client = JiraClient()
 			async for link in models.JiraSentryLink.objects.all():
 				issues = models.Issue.objects.filter(sentry_project_name=link.sentry_project_name_id, sent=False)
-				jira_project_uuid = (await models.Jira.objects.aget(id=link.jira_project_name_id)).uuid
+				jira_project_id = (await models.Jira.objects.aget(id=link.jira_project_name_id)).project_id
 				post_requests = []
 				async for issue in issues:
 					data = {
@@ -63,7 +63,7 @@ class Issues(View):
 						{
 							"project":
 							{
-								"id": jira_project_uuid
+								"id": jira_project_id
 							},
 							"summary": f'{issue.type}: {issue.value}',
 							"description": f'Traceback:\n{issue.traceback}\nSentry URL:\n{issue.url}\n',
