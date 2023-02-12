@@ -8,12 +8,29 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
+
+Quick-start development settings - unsuitable for production
+See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
+
+Database
+https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+
+Password validation
+https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
+
+Internationalization
+https://docs.djangoproject.com/en/4.1/topics/i18n/
+
+Static files (CSS, JavaScript, Images)
+https://docs.djangoproject.com/en/4.1/howto/static-files/
+
+Default primary key field type
+https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 """
 
+from global_utils.environment import Environment
 from pathlib import Path
 import os
-
-from global_utils.environment import Environment
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,93 +38,117 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Class for loading environment variables
 Environment(BASE_DIR)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
 # Gets value of SECRET_KEY from environment
 SECRET_KEY = Environment.get_environment_variable('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Gets value of DEBUG from environment
+DEBUG = bool(Environment.get_environment_variable('DEBUG'))
 
-ALLOWED_HOSTS = ['127.0.0.1',]
+# Gets ALLOWED_HOST constant from environment as string: '<URL1> <URL2> <URL3> ...' and splits that string by space ' '
+ALLOWED_HOSTS = Environment.get_environment_variable('ALLOWED_HOSTS').split(' ')
 
-# Application definition
+# Gets name of file for logging without extension from environment
+LOG_FILE_NAME = Environment.get_environment_variable('LOG_FILE_NAME_NO_EXT') + '.log'
+# Configures logging pattern
+LOGGING = {
+	'version': 1,
+	'disable_existing_loggers': False,
+    'formatters': {
+		'console': {
+			'format': '\x1b[1;35m{levelname}\x1b[0m \x1b[36m|{filename} {funcName}|\x1b[0m {message}',
+            'style': '{',
+		},
+        'file': {
+			'format': '{asctime:<20} {levelname:<9} {filename:<15.15} {funcName:<15.15} || {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+		},
+	},
+	'handlers': {
+		'console': {
+			'level': 'WARNING',
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+		},
+		'file': {
+			'level': 'DEBUG',
+			'class': 'logging.FileHandler',
+			'filename': os.path.join(BASE_DIR, LOG_FILE_NAME),
+			'formatter': 'file',
+        },
+	},
+	'loggers': {
+		'site': {
+			'handlers': ['console', 'file'],
+			'level': 'DEBUG',
+			'propagate': False,
+		},
+	},
+}
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+	'django.contrib.admin',
+	'django.contrib.auth',
+	'django.contrib.contenttypes',
+	'django.contrib.sessions',
+	'django.contrib.messages',
+	'django.contrib.staticfiles',
 	'issues',
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+	'django.middleware.security.SecurityMiddleware',
+	'django.contrib.sessions.middleware.SessionMiddleware',
+	'django.middleware.common.CommonMiddleware',
+	'django.middleware.csrf.CsrfViewMiddleware',
+	'django.contrib.auth.middleware.AuthenticationMiddleware',
+	'django.contrib.messages.middleware.MessageMiddleware',
+	'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'website.urls'
 
 TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
+	{
+		'BACKEND': 'django.template.backends.django.DjangoTemplates',
+		'DIRS': [BASE_DIR / 'templates'],
+		'APP_DIRS': True,
+		'OPTIONS': {
+			'context_processors': [
+				'django.template.context_processors.debug',
+				'django.template.context_processors.request',
+				'django.contrib.auth.context_processors.auth',
+				'django.contrib.messages.context_processors.messages',
+			],
+		},
+	},
 ]
 
 WSGI_APPLICATION = 'website.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+	'default': {
+		'ENGINE': 'django.db.backends.sqlite3',
+		'NAME': BASE_DIR / 'db.sqlite3',
+	}
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+	{
+		'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+	},
+	{
+		'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+	},
+	{
+		'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+	},
+	{
+		'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+	},
 ]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/4.1/topics/i18n/
 
 LANGUAGE_CODE = 'ru-RU'
 
@@ -117,14 +158,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.1/howto/static-files/
-
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
