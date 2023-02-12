@@ -43,11 +43,11 @@ Environment(BASE_DIR)
 SECRET_KEY = Environment.get_environment_variable('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Gets value of DEBUG from environment
-DEBUG = bool(Environment.get_environment_variable('DEBUG'))
+# Gets value of DEBUG from environment and converts it to bool
+DEBUG = Environment.get_environment_variable('DEBUG', bool)
 
 # Gets ALLOWED_HOST constant from environment as string: '<URL1> <URL2> <URL3> ...' and splits that string by space ' '
-ALLOWED_HOSTS = Environment.get_environment_variable('ALLOWED_HOSTS').split(' ')
+ALLOWED_HOSTS = Environment.get_environment_variable('ALLOWED_HOSTS', list)
 
 # Gets name of file for logging without extension from environment
 LOG_FILE_NAME = Environment.get_environment_variable('LOG_FILE_NAME_NO_EXT') + '.log'
