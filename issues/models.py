@@ -8,14 +8,6 @@ class Sentry(models.Model):
 
 	def __str__(self):
 		return self.project_name
-	
-	async def clean_outdated_projects(days):
-		current_time = timezone.now()
-		await Sentry.objects.exclude(
-				last_updated__gte=current_time - datetime.timedelta(days=days),
-				last_updated__lte=current_time
-				).adelete()
-		return
 
 class Jira(models.Model):
 	project_name = models.CharField(max_length=50, unique=True, default='DEFAULT') #may be Primary key

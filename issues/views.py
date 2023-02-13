@@ -11,14 +11,14 @@ from asgiref.sync import sync_to_async
 
 import asyncio
 import json
+import logging
 
-OUTDATED_PROJECTS_IN_DAYS = int(Environment.get_environment_variable('OUTDATED_PROJECTS_IN_DAYS'))
+logger = logging.getLogger('site')
 
 class Issues(View):
-
 	async def get(self, request):
-		await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS) #FIXME: перенести из представления (managment command)
 		issues = models.Issue.objects.all().order_by('-date', '-sent')
+		logger.debug(f'List view for {len(issues)} were called')
 		return await sync_to_async(render)(request, 
 											'issues/issue_list.html',
 											{'issues':issues})
@@ -48,7 +48,6 @@ class Issues(View):
 							(project_name=project, defaults={'last_updated': timezone.now()})
 			traceback = await sync_to_async(json.dumps)(func_fields.pop('traceback'), indent=10)
 			await models.Issue.objects.acreate(sentry_project_name=instance, traceback=traceback, **func_fields)
-			await models.Sentry.clean_outdated_projects(OUTDATED_PROJECTS_IN_DAYS)
 			return
 
 		async def post_issue_to_jira():
@@ -103,3 +102,9 @@ class IssuesDetail(DetailView):
 	model = models.Issue
 	template_name = 'issues/issue_detail.html'
 	context_object_name = 'issue'
+
+	def	get_object(self):
+		obj = super().get_object()
+		time_log_field = obj.date.isoformat(sep=' ', timespec='seconds')
+		logger.debug(f'Detail view for {obj} from {time_log_field} were called')
+		return obj
