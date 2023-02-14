@@ -1,8 +1,9 @@
-from global_utils.environment import Environment
-from .issues_utils.sentry_request_response_handler import IssueReqResHandler
+from .issues_utils.issue_body_builder import IssueBodyBuilder
 from .issues_utils.jira_request_response_handler import JiraClient
+from .issues_utils.custom_exceptions import InvalidContentType, InvalidJSON, InvalidJSONFields
 from . import models
 
+from django.http import JsonResponse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView
@@ -13,18 +14,33 @@ import asyncio
 import json
 import logging
 
+SENTRY_REQUEST_CONTENT_TYPE = "application/json"
+SENTRY_RESPONSE_CONTENT_TYPE = "application/json"
+
 logger = logging.getLogger('site')
 
 class Issues(View):
+	"""
+Class-based view that serves listed below HTTP methods:
+*GET:
+	-gets list of all issues in issue model sorted by date of receive and flag (sent to jira or not)
+	-renders template to show that list of objects
+*POST:
+	-gets POST request from sentry
+	-parse request and check if it is valid
+	-returns error response to source if request doesn't valid
+	-
+	"""
+
 	async def get(self, request):
 		issues = models.Issue.objects.all().order_by('-date', '-sent')
-		logger.debug(f'List view for {len(issues)} were called')
+		logger.debug(f'List view for {await sync_to_async(len)(issues)} issues were called')
 		return await sync_to_async(render)(request, 
 											'issues/issue_list.html',
 											{'issues':issues})
 
 	async def post(self, request):
-
+		
 		async def thread1_jira_side():
 			#Make request to Jira
 			#Handle the Jira model
@@ -44,8 +60,9 @@ class Issues(View):
 			#Delete outdated project according to env variable time
 			func_fields = dict(fields)
 			project = func_fields.pop('sentry_project_name')
-			instance, _ = await models.Sentry.objects.aupdate_or_create\
+			instance, status = await models.Sentry.objects.aupdate_or_create\
 							(project_name=project, defaults={'last_updated': timezone.now()})
+			logger.info(f'Sentry project: {instance} were successfully ' + ('created' if status else 'updated') + '!')
 			traceback = await sync_to_async(json.dumps)(func_fields.pop('traceback'), indent=10)
 			await models.Issue.objects.acreate(sentry_project_name=instance, traceback=traceback, **func_fields)
 			return
@@ -86,19 +103,63 @@ class Issues(View):
 				await sync_to_async(print)(post_responses)
 			await client.close()
 			return
+		
+		def create_response(status_code, message, fields, content_type=SENTRY_RESPONSE_CONTENT_TYPE):
+			body = {
+				'status code': status_code,
+				'message': message,
+				'content': fields,
+			}
+			return JsonResponse(data=body,
+		       					status=status_code,
+								content_type=content_type)
+		#Entry point
+		logger.debug('New issue from Sentry were received by post view')
 
-		issue = IssueReqResHandler(request)
+		try:
+			if request.content_type != SENTRY_REQUEST_CONTENT_TYPE:
+				raise InvalidContentType(
+					406,
+					"Issue should be sent as json: check request's body and headers",
+					)
+			try:
+				json_request_body = json.loads(request.body)
+			except json.JSONDecodeError as json_loading_error:
+				raise InvalidJSON(
+					400,
+					"Sent json have syntaxis errors",
+					) from json_loading_error
+			json_response_body = IssueBodyBuilder(json_request_body)
+		except (
+				InvalidContentType,
+				InvalidJSON,
+	  			InvalidJSONFields,
+				) as exc:
+			return create_response(
+							exc.status_code,
+			  				exc.message,
+							exc.fields,
+							)
 
-		if issue.status == 0:
-			await asyncio.gather(
-								thread1_jira_side(),
-								thread2_sentry_side(issue.fields),
-			)
-			#Post to jira if there is link
-			await post_issue_to_jira()
-		return issue.form_feedback()
+		await asyncio.gather(
+							thread1_jira_side(),
+							thread2_sentry_side(json_response_body.fields),
+		)
+		#Post to jira if there is link
+		await post_issue_to_jira()
+		return create_response(
+								202,
+								"Issue successfully processed!",
+								json_response_body.fields,
+								)
 
 class IssuesDetail(DetailView):
+	"""
+Built-in Generic Class-based view that:
+	-gets certain primary key from url
+	-finds object in certain model <Issue>
+	-renders that object according to initialized template <issue_detail.html>
+	"""
 	model = models.Issue
 	template_name = 'issues/issue_detail.html'
 	context_object_name = 'issue'

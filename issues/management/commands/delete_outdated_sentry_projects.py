@@ -33,7 +33,7 @@ class Command(BaseCommand):
 		if not options['force']:
 			warning = input(f'Are you sure to delete {number_of_projects_to_delete} projects? (Y/N): ')
 			if warning != 'Y':
-				output_message = 'The deletion of sentry projects has been cancelled'
+				output_message = 'The deletion of sentry projects has been canceled'
 				logger.info(output_message)
 				return self.style.HTTP_NOT_MODIFIED(output_message)
 		try:
@@ -47,5 +47,5 @@ class Command(BaseCommand):
 		 					*records-{len(Sentry.objects.all())} \
 		 					*time_in_days-{options["days"]} \
 		 					*force_flag-{options["force"]}'
-			logging.error(output_message)
+			logger.error(output_message)
 			raise CommandError(output_message)

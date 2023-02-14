@@ -1,6 +1,5 @@
 from django.db import models
 from django.utils import timezone
-import datetime
 
 class Sentry(models.Model):
 	project_name = models.CharField(max_length=50, unique=True, default='DEFAULT') #may be Primary key
