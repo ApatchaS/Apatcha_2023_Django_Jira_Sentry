@@ -61,7 +61,7 @@ LOGGING = {
             'style': '{',
 		},
         'file': {
-			'format': '{asctime:<20} {levelname:<9} {filename:<15.15} {funcName:<15.15} || {message}',
+			'format': '{asctime:<20} {levelname:<9} {filename:<20.20} {funcName:<20.20} || {message}',
             'style': '{',
             'datefmt': '%Y-%m-%d %H:%M:%S',
 		},
