@@ -121,7 +121,7 @@ Class-based view that serves listed below HTTP methods:
 						logger.error('For jira project %s specified incorrect base url %s' % (
 															jira_project, 
 									    					jira_project_connection_base_url))
-						return
+						break
 					post_requests.append(
 						asyncio.ensure_future(
 							client.jira_post_request(
