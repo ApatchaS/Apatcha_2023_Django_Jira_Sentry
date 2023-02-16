@@ -28,7 +28,7 @@ class Command(BaseCommand):
 		
 	def handle(self, *args, **options):
 		model_name = options['model']
-		logger.debug(f'Command-line command delete_outdated_projects for {model_name} model were called')
+		logger.debug('Command-line command delete_outdated_projects for %s model were called' % model_name)
 		model = Sentry if model_name=='Sentry' else Jira
 		current_time = timezone.now()
 		objects_to_delete = model.objects.exclude(
@@ -39,19 +39,23 @@ class Command(BaseCommand):
 		if not options['force']:
 			warning = input(f'Are you sure to delete {number_of_projects_to_delete} projects from {model_name} model? (Y/N): ')
 			if warning != 'Y':
-				output_message = f'The deletion of {model_name} projects has been canceled'
+				output_message = 'The deletion of %s projects has been canceled' % model_name
 				logger.info(output_message)
 				return self.style.HTTP_NOT_MODIFIED(output_message)
 		try:
 			result = objects_to_delete.delete()
-			output_message = f'Successfuly deleted {result[0]} projects from {model_name} datatable'
+			output_message = 'Successfuly deleted %d projects from %s datatable' % (result[0], model_name)
 			logger.info(output_message)
 			return self.style.SUCCESS(output_message)
 		except:
-			output_message = f'Unable to delete {number_of_projects_to_delete} projects from {model_name} model; \
+			output_message = 'Unable to delete %d projects from %s model; \
 		 					command arguments: \
-		 					*records-{len(model.objects.all())} \
-		 					*time in days-{options["days"]} \
-		 					*force flag-{options["force"]}'
+		 					*records-%d \
+		 					*time in days-%d \
+		 					*force flag-%s' % (number_of_projects_to_delete,
+			   									model_name,
+												len(model.objects.all()),
+												options["days"],
+												options["force"])
 			logger.error(output_message)
 			raise CommandError(output_message)

@@ -1,5 +1,5 @@
 from .issues_utils.issue_body_builder import IssueBodyBuilder
-from .issues_utils.jira_request_response_handler import JiraClient
+from .issues_utils.jira_client import JiraClient
 from .issues_utils.custom_exceptions import InvalidContentType, InvalidJSON, InvalidJSONFields
 from . import models
 
@@ -9,6 +9,7 @@ from django.views import View
 from django.views.generic import DetailView
 from django.shortcuts import render
 from asgiref.sync import sync_to_async
+from validators import url as valid_url
 
 import asyncio
 import json
@@ -18,6 +19,14 @@ SENTRY_REQUEST_CONTENT_TYPE = "application/json"
 SENTRY_RESPONSE_CONTENT_TYPE = "application/json"
 
 logger = logging.getLogger('site')
+
+class About(View):
+	"""
+	Class-based view to render page ABOUT
+	"""
+	async def get(self, request):
+		logger.debug('About page were called')
+		return await sync_to_async(render)(request, 'issues/about.html')
 
 class Issues(View):
 	"""
@@ -29,49 +38,65 @@ Class-based view that serves listed below HTTP methods:
 	-gets POST request from sentry
 	-parse request and check if it is valid
 	-returns error response to source if request doesn't valid
-	-
+	-creates new object or updates time of last update for sentry model to which issue was sent
+	-creates new record in issue model
+	-for each link between jira and sentry models:
+		--gets:
+			*jira project name
+			*jira project id
+			*jira base url to post request on
+			*timeout for connection to jira
+			*bearer token for auth
+			*didn't send issues from sentry model record related to link
+		--creates new session with gotten parameters (timeout, bearer token)
+		--for each gotten issue:
+			---forms body for request
+			---forms full url
+			---validates url
+			---creates task which send request to jira
+			---appending each task to list
+		--waits till finishing each task in the list
+		--closes created earlier session
+		--updates:
+			*flag which illustates if issue was sent for each successfuly posted to jira issue
+			*date of last update for jira model
+	-creates response to sentry
 	"""
 
 	async def get(self, request):
 		issues = models.Issue.objects.all().order_by('-date', '-sent')
-		logger.debug(f'List view for {await sync_to_async(len)(issues)} issues were called')
-		return await sync_to_async(render)(request, 
+		logger.debug('List view for %d issues were called' % await sync_to_async(len)(issues))
+		return await sync_to_async(render)(request,
 											'issues/issue_list.html',
 											{'issues':issues})
 
 	async def post(self, request):
-		
-		async def thread1_jira_side():
-			#Make request to Jira
-			#Handle the Jira model
-			client = JiraClient() #FIXME: переписать потом
-			response = await client.jira_get_request(url='https://jira.zyfra.com/rest/api/2/project/') #FIXME: перенести baseurl: https://jira.zyfra.com/
-			if response != None:
-				jira_projects = JiraClient.jira_get_project_list(response)
-				django_projects = {(item.project_name, item.project_id)  async for item in models.Jira.objects.all()}
-				projects_to_push = jira_projects.difference(django_projects)
-				await models.Jira.objects.abulk_create((models.Jira(project_name=item[0], project_id=item[1]) for item in projects_to_push))
-			await client.close()
-			return
 
-		async def thread2_sentry_side(fields):
-			#Create or update project's record in the Sentry model
-			#Create new issue record in the Issue model
-			#Delete outdated project according to env variable time
+		async def sentry_issue_models_handler(fields):
 			func_fields = dict(fields)
 			project = func_fields.pop('sentry_project_name')
 			instance, status = await models.Sentry.objects.aupdate_or_create\
 							(project_name=project, defaults={'last_updated': timezone.now()})
-			logger.info(f'Sentry project: {instance} were successfully ' + ('created' if status else 'updated') + '!')
+			logger.info('Sentry project: %s was successfully %s!' % (instance, ('created' if status else 'updated')))
 			traceback = await sync_to_async(json.dumps)(func_fields.pop('traceback'), indent=10)
 			await models.Issue.objects.acreate(sentry_project_name=instance, traceback=traceback, **func_fields)
+			logger.info('New issue for %s sentry project was successfully created!' % instance)
 			return
 
 		async def post_issue_to_jira():
-			client = JiraClient()
 			async for link in models.JiraSentryLink.objects.all():
+
+				jira_project = await models.Jira.objects.aget(id=link.jira_project_name_id)
+				jira_project_connection = await models.JiraConnection.objects.aget(id=jira_project.connection_id)
+				jira_project_auth = await models.JiraAuth.objects.aget(id=jira_project.auth_id)
+				jira_project_id = jira_project.project_id
+				jira_project_auth_token = jira_project_auth.token
+				jira_project_connection_base_url = jira_project_connection.base_url
+				jira_project_connection_timeout = jira_project_connection.timeout
+
 				issues = models.Issue.objects.filter(sentry_project_name=link.sentry_project_name_id, sent=False)
-				jira_project_id = (await models.Jira.objects.aget(id=link.jira_project_name_id)).project_id
+
+				client = JiraClient(jira_project_auth_token, jira_project_connection_timeout)
 				post_requests = []
 				async for issue in issues:
 					data = {
@@ -89,19 +114,36 @@ Class-based view that serves listed below HTTP methods:
 							}
 						}
 					}
+					data = json.dumps(data, indent=5)
+					url = jira_project_connection_base_url + 'rest/api/2/issue/'
+					if not valid_url(url):
+						await client.close()
+						logger.error('For jira project %s specified incorrect base url %s' % (
+															jira_project, 
+									    					jira_project_connection_base_url))
+						return
 					post_requests.append(
 						asyncio.ensure_future(
 							client.jira_post_request(
-								url='https://jira.zyfra.com/rest/api/2/issue/',
-								data=json.dumps(data, indent=5),
+								url=url,
+								data=data,
 							)))
 				post_responses = await asyncio.gather(*post_requests)
-				for ind in range(len(post_responses)):
+				await client.close()
+				post_responses_size = len(post_responses)
+				jira_project.last_updated = timezone.now()
+				await sync_to_async(jira_project.save)()
+				logger.info('For jira project %s were successfully updated date of last update' % jira_project)
+				successful_post_responses = 0
+				for ind in range(post_responses_size):
 					if post_responses[ind] != None:
+						successful_post_responses += 1
 						issues[ind].sent = True
 						await sync_to_async(issues[ind].save)()
-				await sync_to_async(print)(post_responses)
-			await client.close()
+				logger.info('For link %s among %d issues %d were successfully sent to Jira!' % (
+													await sync_to_async(link.__str__)(),
+													post_responses_size,
+													successful_post_responses))
 			return
 		
 		def create_response(status_code, message, fields, content_type=SENTRY_RESPONSE_CONTENT_TYPE):
@@ -113,7 +155,7 @@ Class-based view that serves listed below HTTP methods:
 			return JsonResponse(data=body,
 		       					status=status_code,
 								content_type=content_type)
-		#Entry point
+		
 		logger.debug('New issue from Sentry were received by post view')
 
 		try:
@@ -130,22 +172,22 @@ Class-based view that serves listed below HTTP methods:
 					"Sent json have syntaxis errors",
 					) from json_loading_error
 			json_response_body = IssueBodyBuilder(json_request_body)
+			logger.info('Request from Sentry was successfuly validated!')
 		except (
 				InvalidContentType,
 				InvalidJSON,
 	  			InvalidJSONFields,
 				) as exc:
+			logger.error('While validating request from sentry errors were detected. Type: %s. Message: %s' % (
+																		type(exc),
+																		exc.message))
 			return create_response(
 							exc.status_code,
 			  				exc.message,
 							exc.fields,
 							)
 
-		await asyncio.gather(
-							thread1_jira_side(),
-							thread2_sentry_side(json_response_body.fields),
-		)
-		#Post to jira if there is link
+		await sentry_issue_models_handler(json_response_body.fields),
 		await post_issue_to_jira()
 		return create_response(
 								202,
@@ -167,5 +209,5 @@ Built-in Generic Class-based view that:
 	def	get_object(self):
 		obj = super().get_object()
 		time_log_field = obj.date.isoformat(sep=' ', timespec='seconds')
-		logger.debug(f'Detail view for {obj} from {time_log_field} were called')
+		logger.debug('Detail view for %s from %s were called' % (obj, time_log_field))
 		return obj

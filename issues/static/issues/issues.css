@@ -17,13 +17,17 @@ body {
     flex-direction: column;
     flex-wrap: nowrap;
     justify-content: center;
+	color: #59a417;
+	text-align: left;
+	text-decoration: none;
 }
 
 #header_title_link {
-	color: #59a417;
 	font-size: 36pt;
-	text-align: left;
-	text-decoration: none;
+}
+
+#header_title_about {
+	font-size: 10pt;
 }
 
 .header_icon {

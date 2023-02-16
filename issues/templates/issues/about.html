@@ -1,0 +1,47 @@
+{% extends 'issues/base.html' %}
+
+{% block content %}
+	<h2>About page</h2>
+	<p>This is a about page for the integration of Sentry and Jira.</p>
+	<p>
+		This integration allows you to link Sentry's bug tracking system and Jira's task tracking system
+		to automatically send bugs that get into Sentry as tasks to a specific Jira project
+	</p>
+	<p>
+		To get started you need:
+		<ol>
+			<li>Set up <b>Webhook</b> integration for a project in Sentry</li>
+			<li>Configuring an <b>alert rule</b> to initiate the sending of issues via WebHook</li>
+			<li>Create a Django admin user with <b>./manage.py createsuperuser</b></li>
+			<li>
+				*It may be necessary to wait for the Issue from Sentry
+				to come into the system before the next step
+				(Or create an entry in the Sentry table manually)
+			</li>
+			<li>
+				Go to the
+				<a href="admin/" title="Go to the admin page">Admin page</a>
+				and <b>create entries</b> in the following tables according to your Jira data:
+				<ul>
+					<li>Jira auths</li>
+					<li>Jira connections</li>
+					<li>Jiras</li>
+					<li>Jira sentry links</li>
+				</ul>
+			</li>
+		</ol>
+	</p>
+	<p>
+		Also may be usefull:
+		<ul>
+			<li>
+				To see all Issues coming from Sentry, follow
+				<a href="{% url 'issues:issue_list' %}" title="Go to the issue list">this link</a>
+			</li>
+			<li>
+				To delete irrelevant Sentry or Jira projects, use the following command
+				./manage.py delete_outdated_projects |model: {Sentry, Jira}| [days: 30 days by default] [-f --force: without warning message]
+			</li>
+		</ul>
+	</p>
+{% endblock %}
